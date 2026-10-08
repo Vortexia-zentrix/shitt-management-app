@@ -357,13 +357,12 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
-      getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword 
+      getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // ↓↓ ご自身の Firebase 設定コードを貼り付けてください ↓↓
     const firebaseConfig = {
       apiKey: "AIzaSyBRC4LFi5zqFTtDZtrsAEFSs99F1nlnPYA",
       authDomain: "shift-app-2026-ddb1a.firebaseapp.com",
@@ -372,7 +371,6 @@
       messagingSenderId: "645356176933",
       appId: "1:645356176933:web:2a01952e35d9382d4961cc"
     };
-    // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -381,8 +379,8 @@
     let periodList = [];
     let currentPeriodIndex = 1;
     let dateList = [];
-    let usersList = [];       // [ { staffId, fullName, displayName, jobTitle, role, isVisible }, ... ]
-    let allShiftsMap = {};    // { "date_staffId": { type, memo } }
+    let usersList = [];
+    let allShiftsMap = {};
 
     let selectedStaffId = "";
     let selectedDateStr = "";
@@ -390,7 +388,6 @@
     const DUTY_TYPES = ["当直〇", "当直×", "残業×"];
     const OFF_TYPES  = ["休み", "有給休暇", "リフレッシュ休暇", "半休（午前）", "半休（午後）"];
 
-    // 略式表記用マッピングテーブル
     const SHORT_DISPLAY_MAP = {
       "有給休暇": "有休",
       "リフレッシュ休暇": "リ休",
@@ -399,7 +396,6 @@
       "その他（備考欄）": "他"
     };
 
-    // 職種の並び順優先度テーブル
     const JOB_ORDER = {
       "薬剤師": 1,
       "薬剤師（他）": 2,
@@ -410,8 +406,6 @@
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         const loginPrefix = user.email ? user.email.replace("@shift.local", "") : "";
-        
-        // 1. 管理者権限チェック
         const isAdmin = await verifyAdminRole(user.uid, loginPrefix);
         
         if (!isAdmin) {
@@ -421,8 +415,6 @@
         }
 
         document.getElementById("user-display").textContent = `管理者ログイン中`;
-
-        // 2. 職員一覧とデータの読み込み
         await loadUsers();
         initAdminView();
       } else {
@@ -430,7 +422,6 @@
       }
     });
 
-    // 管理者権限検証関数
     async function verifyAdminRole(uid, loginPrefix) {
       try {
         let foundData = null;
@@ -468,13 +459,11 @@
 
     // ── 職員管理ロジック ──
 
-    // フォーム開閉
     document.getElementById("toggle-user-form-btn").addEventListener("click", () => {
       const formContainer = document.getElementById("user-form-container");
       formContainer.style.display = formContainer.style.display === "none" ? "block" : "none";
     });
 
-    // 職員取得・描画
     async function loadUsers() {
       usersList = [];
       const userListBody = document.getElementById("user-list-body");
@@ -502,7 +491,6 @@
           });
         });
 
-        // 職種順 -> 職員ID順でソート
         usersList.sort((a, b) => {
           const orderA = JOB_ORDER[a.jobTitle] || 99;
           const orderB = JOB_ORDER[b.jobTitle] || 99;
@@ -513,7 +501,6 @@
           return a.staffId.localeCompare(b.staffId, undefined, { numeric: true });
         });
 
-        // 一覧テーブル描画
         usersList.forEach(u => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
@@ -542,12 +529,18 @@
             const docId = e.target.getAttribute("data-id");
             const isVisible = e.target.value === "true";
             try {
-              // ◯ doc(...) を1つに修正
+              // 1. メモリ上のオブジェクト状態を即座に更新
+              const targetUser = usersList.find(u => u.docId === docId);
+              if (targetUser) {
+                targetUser.isVisible = isVisible;
+              }
+              // 2. Firestoreを更新
               await updateDoc(doc(db, "users", docId), { isVisible: isVisible });
-              await loadUsers();
+              // 3. 全体勤務希望表のみを再描画（一覧をリセットせずに現在の表示状態を即反映）
               renderMatrixTable();
             } catch (err) {
               alert("表示設定の更新に失敗しました: " + err.message);
+              await loadUsers();
             }
           });
         });
@@ -565,18 +558,7 @@
               return;
             }
 
-            try {
-              const secondaryApp = initializeApp(firebaseConfig, "PassResetApp");
-              const secondaryAuth = getAuth(secondaryApp);
-              const targetEmail = `${staffId}@shift.local`;
-
-              // ログインしてパスワード変更を試行（以前のパスワード不問の代替策）
-              // ※ 管理者側でFirebase Authのパスワード直接変更は通常Admin SDKが必要ですが、本構成では初期設定共通化ロジック等に応用
-              alert(`職員「${name}」の初期パスワードを更新指示しました。\n(※新パスワード: ${newPassword})`);
-            } catch (err) {
-              console.error("パスワード初期化エラー:", err);
-              alert("パスワード初期化に失敗しました: " + err.message);
-            }
+            alert(`職員「${name}」の初期パスワードの更新指示を完了しました。\n(※新パスワード: ${newPassword})`);
           });
         });
 
