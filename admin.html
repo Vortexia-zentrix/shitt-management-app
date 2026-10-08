@@ -237,7 +237,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 5px;">
-          <label for="max-off-days-input" style="font-size: 13px; font-weight: bold;">公休数:</label>
+          <label for="max-off-days-input" style="font-size: 13px; font-weight: bold;">公休基本数:</label>
           <input type="number" id="max-off-days-input" value="9" min="0" max="31" style="width: 55px; padding: 5px; font-size: 13px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
           <span style="font-size:13px;">日</span>
         </div>
@@ -247,7 +247,7 @@
           <span style="font-size:13px;">日</span>
         </div>
         <div style="font-size:13px; font-weight:bold; color:#0d6efd;" id="total-days-preview">
-          (合計可能数: 9日)
+          (休日総数: 9日)
         </div>
         <button id="btn-save-period-config" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">設定を保存</button>
       </div>
@@ -506,7 +506,7 @@
     function updatePreview() {
       const off = Number(document.getElementById("max-off-days-input").value) || 0;
       const extra = Number(document.getElementById("extra-off-days-input").value) || 0;
-      document.getElementById("total-days-preview").textContent = `(合計可能数: ${off + extra}日)`;
+      document.getElementById("total-days-preview").textContent = `(休日総数: ${off + extra}日)`;
     }
     document.getElementById("max-off-days-input").addEventListener("input", updatePreview);
     document.getElementById("extra-off-days-input").addEventListener("input", updatePreview);
@@ -761,6 +761,7 @@
       renderMatrixTable();
     }
 
+    // 保存ボタンクリック処理（詳細なエラーハンドリング付き）
     document.getElementById("btn-save-period-config").addEventListener("click", async () => {
       const target = periodList[currentPeriodIndex];
       const maxOff = Number(document.getElementById("max-off-days-input").value) || 0;
@@ -777,7 +778,12 @@
         alert("期間の休日・割休設定を保存しました。");
         renderMatrixTable();
       } catch (e) {
-        alert("設定の保存に失敗しました: " + e.message);
+        console.error("設定保存エラー詳細:", e);
+        if (e.code === "permission-denied") {
+          alert("保存に失敗しました: Firebase のセキュリティルールにより書き込みが拒否されました。\nFirestore セキュリティルールで「period_configs」コレクションへの書き込み（write）権限を許可してください。");
+        } else {
+          alert("設定の保存に失敗しました:\n" + e.message);
+        }
       }
     });
 
