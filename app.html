@@ -84,6 +84,30 @@
       border-color: #0066cc;
     }
 
+    /* 追加：公休数・割休数のバッジスタイル */
+    .period-info-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .holiday-info-badge {
+      background-color: #eef6ff;
+      border: 1px solid #bce0fd;
+      color: #0056b3;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .holiday-info-badge span {
+      color: #d9534f;
+      font-size: 14px;
+    }
+
     .status-banner {
       padding: 10px 12px;
       border-radius: 4px;
@@ -234,6 +258,17 @@
         padding: 10px;
       }
 
+      .period-info-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
+      .holiday-info-badge {
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+
       .calendar-grid {
         gap: 2px;
       }
@@ -289,7 +324,13 @@
   <div class="card">
     <div class="period-toolbar">
       <div id="period-tabs" class="period-tabs"></div>
-      <div id="period-display" style="font-weight:bold; color:#0066cc;">対象期間: 取得中...</div>
+      <div class="period-info-group">
+        <div id="period-display" style="font-weight:bold; color:#0066cc;">対象期間: 取得中...</div>
+        <!-- 追加：公休数・割休数の表示領域 -->
+        <div id="holiday-info-display" class="holiday-info-badge">
+          公休数: <span id="public-holiday-count">-</span>日 / 割休数: <span id="split-holiday-count">-</span>日
+        </div>
+      </div>
     </div>
 
     <div id="status-banner" class="status-banner"></div>
@@ -594,7 +635,7 @@
       });
     }
 
-    function switchPeriod(index) {
+    async function switchPeriod(index) {
       currentPeriodIndex = index;
       const targetPeriod = periodList[index];
       dateList = targetPeriod.dates;
@@ -602,9 +643,51 @@
       document.getElementById("period-display").textContent = 
         `対象期間: ${targetPeriod.startStr} 〜 ${targetPeriod.endStr}`;
 
+      // 公休数・割休数の取得・更新を追加呼び出し
+      await fetchPeriodSettings(targetPeriod);
+
       updateEditableStatus(targetPeriod);
       renderPeriodTabs();
       renderCalendar();
+    }
+
+    // 追加：admin.htmlで設定された公休数・割休数をFirestoreから取得して表示する関数
+    async function fetchPeriodSettings(periodObj) {
+      const publicEl = document.getElementById("public-holiday-count");
+      const splitEl = document.getElementById("split-holiday-count");
+      
+      // 初期化
+      publicEl.textContent = "-";
+      splitEl.textContent = "-";
+
+      try {
+        // ドキュメントIDの指定パターン（運用に合わせて調整可能）
+        // パターンA: 期間文字列（例: "2026-04-16_2026-05-15"）
+        const periodKey = `${periodObj.startStr}_${periodObj.endStr}`;
+        let docRef = doc(db, "periodSettings", periodKey);
+        let docSnap = await getDoc(docRef);
+
+        // パターンB: settings/periodSettings 内のマップデータや別形式の場合のフォールバック
+        if (!docSnap.exists()) {
+          // 例: settingsコレクションのperiodSettingsドキュメント
+          docRef = doc(db, "settings", "periodSettings");
+          docSnap = await getDoc(docRef);
+          if (docSnap.exists() && docSnap.data()[periodKey]) {
+            const pData = docSnap.data()[periodKey];
+            publicEl.textContent = pData.publicHolidays ?? "-";
+            splitEl.textContent = pData.splitHolidays ?? "-";
+            return;
+          }
+        }
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          publicEl.textContent = data.publicHolidays ?? data.publicHoliday ?? "-";
+          splitEl.textContent = data.splitHolidays ?? data.splitHoliday ?? "-";
+        }
+      } catch (e) {
+        console.warn("公休数・割休数データ取得エラー:", e);
+      }
     }
 
     function updateEditableStatus(periodObj) {
