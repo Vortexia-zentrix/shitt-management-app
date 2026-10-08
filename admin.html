@@ -136,9 +136,17 @@
       font-weight: bold;
       z-index: 11;
       text-align: left;
-      min-width: 100px;
+      min-width: 110px;
     }
-    th.staff-col {
+    .count-col {
+      position: sticky;
+      left: 110px;
+      background: #f8f9fa;
+      z-index: 11;
+      min-width: 80px;
+      font-weight: bold;
+    }
+    th.staff-col, th.count-col {
       background: #e9ecef;
       z-index: 12;
     }
@@ -156,10 +164,9 @@
     .shift-off { background-color: #f8d7da; color: #721c24; font-weight: bold; }
     .shift-work { background-color: #d1ecf1; color: #0c5460; }
     
-    /* 職員管理用スタイル */
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 10px;
       margin-bottom: 15px;
     }
@@ -195,8 +202,17 @@
     .btn-secondary { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
     .btn-sm-danger { background: #dc3545; color: white; border: none; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
     .btn-sm-warning { background: #ffc107; color: #212529; border: none; padding: 3px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-    .btn-sm-warning:hover { background: #e0a800; }
     .select-sm { padding: 2px 4px; font-size: 11px; border-radius: 3px; border: 1px solid #ced4da; }
+    
+    .config-box {
+      background: #f1f3f5;
+      padding: 12px 15px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -210,7 +226,35 @@
     </div>
   </header>
 
-  <!-- 1. 職員マスター登録・管理カード -->
+  <!-- 1. 期間別 休日設定（公休数・割休数） -->
+  <div class="card">
+    <div class="card-title">
+      <span>⚙️ 選択中期間の休日・割休設定</span>
+    </div>
+    <div class="config-box">
+      <div>
+        <span style="font-weight: bold; font-size: 14px;" id="period-setting-label">対象期間: ---</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <label for="max-off-days-input" style="font-size: 13px; font-weight: bold;">公休数:</label>
+          <input type="number" id="max-off-days-input" value="9" min="0" max="31" style="width: 55px; padding: 5px; font-size: 13px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
+          <span style="font-size:13px;">日</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <label for="extra-off-days-input" style="font-size: 13px; font-weight: bold; color: #d9534f;">割休数:</label>
+          <input type="number" id="extra-off-days-input" value="0" min="0" max="10" style="width: 55px; padding: 5px; font-size: 13px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
+          <span style="font-size:13px;">日</span>
+        </div>
+        <div style="font-size:13px; font-weight:bold; color:#0d6efd;" id="total-days-preview">
+          (合計可能数: 9日)
+        </div>
+        <button id="btn-save-period-config" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 職員マスター登録・管理カード -->
   <div class="card">
     <div class="card-title">
       <span>👥 職員アカウント登録・管理</span>
@@ -218,7 +262,7 @@
     </div>
 
     <!-- 登録フォーム -->
-    <div id="user-form-container">
+    <div id="user-form-container" style="display: none;">
       <form id="add-user-form">
         <div class="form-grid">
           <div class="form-group">
@@ -268,7 +312,7 @@
     </div>
 
     <!-- 登録済み職員一覧テーブル -->
-    <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+    <div class="table-container" style="max-height: 220px; overflow-y: auto;">
       <table style="text-align: left;">
         <thead>
           <tr>
@@ -276,8 +320,8 @@
             <th>氏名</th>
             <th>表示名</th>
             <th style="width: 80px;">職種</th>
-            <th style="width: 50px;">権限</th>
-            <th style="width: 90px; text-align: center;">一覧表示</th>
+            <th style="width: 60px;">権限</th>
+            <th style="width: 80px; text-align: center;">一覧表示</th>
             <th style="width: 100px; text-align: center;">操作</th>
           </tr>
         </thead>
@@ -288,7 +332,7 @@
     </div>
   </div>
 
-  <!-- 2. 全体勤務希望一覧カード -->
+  <!-- 3. 全体勤務希望一覧カード -->
   <div class="card">
     <div class="card-title">
       <span>📅 全職員の勤務希望一覧</span>
@@ -381,12 +425,14 @@
     let dateList = [];
     let usersList = [];
     let allShiftsMap = {};
+    let periodConfig = { maxOffDays: 9, extraOffDays: 0 };
 
     let selectedStaffId = "";
     let selectedDateStr = "";
 
     const DUTY_TYPES = ["当直〇", "当直×", "残業×"];
     const OFF_TYPES  = ["休み", "有給休暇", "リフレッシュ休暇", "半休（午前）", "半休（午後）"];
+    const COUNTED_OFF_TYPES = ["休み", "有給休暇", "リフレッシュ休暇"];
 
     const SHORT_DISPLAY_MAP = {
       "有給休暇": "有休",
@@ -425,7 +471,6 @@
     async function verifyAdminRole(uid, loginPrefix) {
       try {
         let foundData = null;
-
         let uDoc = await getDoc(doc(db, "users", uid));
         if (uDoc.exists()) foundData = uDoc.data();
 
@@ -457,12 +502,14 @@
       signOut(auth).then(() => { window.location.href = "index.html"; });
     });
 
-    // ── 職員管理ロジック ──
-
-    document.getElementById("toggle-user-form-btn").addEventListener("click", () => {
-      const formContainer = document.getElementById("user-form-container");
-      formContainer.style.display = formContainer.style.display === "none" ? "block" : "none";
-    });
+    // 入力値変更時にプレビュー更新
+    function updatePreview() {
+      const off = Number(document.getElementById("max-off-days-input").value) || 0;
+      const extra = Number(document.getElementById("extra-off-days-input").value) || 0;
+      document.getElementById("total-days-preview").textContent = `(合計可能数: ${off + extra}日)`;
+    }
+    document.getElementById("max-off-days-input").addEventListener("input", updatePreview);
+    document.getElementById("extra-off-days-input").addEventListener("input", updatePreview);
 
     async function loadUsers() {
       usersList = [];
@@ -494,10 +541,7 @@
         usersList.sort((a, b) => {
           const orderA = JOB_ORDER[a.jobTitle] || 99;
           const orderB = JOB_ORDER[b.jobTitle] || 99;
-
-          if (orderA !== orderB) {
-            return orderA - orderB;
-          }
+          if (orderA !== orderB) return orderA - orderB;
           return a.staffId.localeCompare(b.staffId, undefined, { numeric: true });
         });
 
@@ -523,51 +567,40 @@
           userListBody.appendChild(tr);
         });
 
-        // 表示/非表示 切り替えイベント
         userListBody.querySelectorAll(".toggle-visible").forEach(select => {
           select.addEventListener("change", async (e) => {
             const docId = e.target.getAttribute("data-id");
             const isVisible = e.target.value === "true";
             try {
-              // 1. メモリ上のオブジェクト状態を即座に更新
               const targetUser = usersList.find(u => u.docId === docId);
-              if (targetUser) {
-                targetUser.isVisible = isVisible;
-              }
-              // 2. Firestoreを更新
+              if (targetUser) targetUser.isVisible = isVisible;
               await updateDoc(doc(db, "users", docId), { isVisible: isVisible });
-              // 3. 全体勤務希望表のみを再描画（一覧をリセットせずに現在の表示状態を即反映）
               renderMatrixTable();
             } catch (err) {
               alert("表示設定の更新に失敗しました: " + err.message);
-              await loadUsers();
             }
           });
         });
 
-        // パスワード初期化ボタン イベント
         userListBody.querySelectorAll(".btn-reset-pass").forEach(btn => {
           btn.addEventListener("click", async (e) => {
             const staffId = e.target.getAttribute("data-id");
             const name = e.target.getAttribute("data-name");
             const newPassword = prompt(`職員「${name}（ID: ${staffId}）」の新しい初期パスワードを入力してください:`, "123456");
-
             if (newPassword === null) return;
             if (newPassword.trim().length < 6) {
               alert("パスワードは6文字以上で指定してください。");
               return;
             }
-
             alert(`職員「${name}」の初期パスワードの更新指示を完了しました。\n(※新パスワード: ${newPassword})`);
           });
         });
 
-        // 削除ボタンのイベントリスナー
         userListBody.querySelectorAll(".btn-delete-user").forEach(btn => {
           btn.addEventListener("click", async (e) => {
             const docId = e.target.getAttribute("data-id");
             const name = e.target.getAttribute("data-name");
-            if (confirm(`職員「${name}」を削除しますか？\n（注: 認証用のFirebase AuthアカウントはFirestore削除後に自動解除されません）`)) {
+            if (confirm(`職員「${name}」を削除しますか？`)) {
               await deleteDoc(doc(db, "users", docId));
               alert("削除しました。");
               await loadUsers();
@@ -582,7 +615,6 @@
       }
     }
 
-    // 職員の新規追加処理
     document.getElementById("add-user-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const staffId = document.getElementById("new-staff-id").value.trim();
@@ -591,15 +623,11 @@
       const jobTitle = document.getElementById("new-job-title").value;
       const role = document.getElementById("new-role").value;
       const isVisible = document.getElementById("new-is-visible").value === "true";
-      let password = document.getElementById("new-password").value.trim();
+      let password = document.getElementById("new-password").value.trim() || "123456";
 
       if (!staffId || !fullName || !displayName) {
         alert("職員ID、職員氏名、表示名は必須項目です。");
         return;
-      }
-
-      if (!password) {
-        password = "123456";
       }
 
       const dummyEmail = `${staffId}@shift.local`;
@@ -638,8 +666,6 @@
       }
     });
 
-    // ── シフト希望マトリクス表示ロジック ──
-
     function generate4Periods() {
       const today = new Date();
       const year = today.getFullYear();
@@ -670,7 +696,8 @@
           shortLabel: labels[i + 1],
           dates: dates,
           startStr: dates[0],
-          endStr: dates[dates.length - 1]
+          endStr: dates[dates.length - 1],
+          periodKey: `${dates[0]}_${dates[dates.length - 1]}`
         });
       }
       return periods;
@@ -705,17 +732,54 @@
       });
     }
 
-    function switchPeriod(index) {
+    async function switchPeriod(index) {
       currentPeriodIndex = index;
       const target = periodList[index];
       dateList = target.dates;
 
       document.getElementById("period-display").textContent = 
         `対象期間: ${target.startStr} 〜 ${target.endStr}`;
+      document.getElementById("period-setting-label").textContent = 
+        `対象期間: ${target.startStr} 〜 ${target.endStr} (${target.shortLabel})`;
+
+      try {
+        const pDoc = await getDoc(doc(db, "period_configs", target.periodKey));
+        if (pDoc.exists()) {
+          periodConfig = pDoc.data();
+        } else {
+          periodConfig = { maxOffDays: 9, extraOffDays: 0 };
+        }
+      } catch(e) {
+        periodConfig = { maxOffDays: 9, extraOffDays: 0 };
+      }
+
+      document.getElementById("max-off-days-input").value = periodConfig.maxOffDays ?? 9;
+      document.getElementById("extra-off-days-input").value = periodConfig.extraOffDays ?? 0;
+      updatePreview();
 
       renderPeriodTabs();
       renderMatrixTable();
     }
+
+    document.getElementById("btn-save-period-config").addEventListener("click", async () => {
+      const target = periodList[currentPeriodIndex];
+      const maxOff = Number(document.getElementById("max-off-days-input").value) || 0;
+      const extraOff = Number(document.getElementById("extra-off-days-input").value) || 0;
+
+      try {
+        await setDoc(doc(db, "period_configs", target.periodKey), {
+          maxOffDays: maxOff,
+          extraOffDays: extraOff,
+          updatedAt: new Date()
+        });
+        periodConfig.maxOffDays = maxOff;
+        periodConfig.extraOffDays = extraOff;
+        alert("期間の休日・割休設定を保存しました。");
+        renderMatrixTable();
+      } catch (e) {
+        alert("設定の保存に失敗しました: " + e.message);
+      }
+    });
 
     function renderMatrixTable() {
       const thead = document.getElementById("table-head");
@@ -731,6 +795,11 @@
       thStaff.textContent = "職員名";
       headerRow.appendChild(thStaff);
 
+      const thCount = document.createElement("th");
+      thCount.className = "count-col";
+      thCount.textContent = "希望/上限";
+      headerRow.appendChild(thCount);
+
       dateList.forEach(dStr => {
         const d = new Date(dStr);
         const th = document.createElement("th");
@@ -744,8 +813,8 @@
       });
       thead.appendChild(headerRow);
 
-      // 表示対象（isVisible === true）の職員のみフィルタリング
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
+      const maxAllowed = (periodConfig.maxOffDays || 9) + (periodConfig.extraOffDays || 0);
 
       visibleUsers.forEach(u => {
         const tr = document.createElement("tr");
@@ -754,6 +823,29 @@
         tdStaff.className = "staff-col";
         tdStaff.textContent = u.displayName;
         tr.appendChild(tdStaff);
+
+        let requestedOffDays = 0;
+        dateList.forEach(dStr => {
+          const key = `${dStr}_${u.staffId}`;
+          const shift = allShiftsMap[key];
+          if (shift) {
+            if (COUNTED_OFF_TYPES.includes(shift.type)) {
+              requestedOffDays += 1;
+            } else if (shift.type === "半休（午前）" || shift.type === "半休（午後）") {
+              requestedOffDays += 0.5;
+            }
+          }
+        });
+
+        const tdCount = document.createElement("td");
+        tdCount.className = "count-col";
+        tdCount.textContent = `${requestedOffDays} / ${maxAllowed}`;
+        
+        if (requestedOffDays > maxAllowed) {
+          tdCount.style.color = "#dc3545";
+          tdCount.style.backgroundColor = "#f8d7da";
+        }
+        tr.appendChild(tdCount);
 
         dateList.forEach(dStr => {
           const td = document.createElement("td");
@@ -784,7 +876,6 @@
       });
     }
 
-    // ── CSVダウンロード処理 ──
     document.getElementById("btn-download-csv").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
 
@@ -794,24 +885,33 @@
       }
 
       const rows = [];
-
-      const headerRow = ["職員ID", "職員氏名", "表示名", "職種"];
+      const headerRow = ["職員ID", "職員氏名", "表示名", "職種", "希望休み数", "上限日数"];
       dateList.forEach(dStr => {
         headerRow.push(dStr);
       });
       rows.push(headerRow);
 
+      const maxAllowed = (periodConfig.maxOffDays || 9) + (periodConfig.extraOffDays || 0);
+
       visibleUsers.forEach(u => {
-        const row = [u.staffId, u.fullName, u.displayName, u.jobTitle];
+        let requestedOffDays = 0;
+        dateList.forEach(dStr => {
+          const key = `${dStr}_${u.staffId}`;
+          const shift = allShiftsMap[key];
+          if (shift) {
+            if (COUNTED_OFF_TYPES.includes(shift.type)) requestedOffDays += 1;
+            else if (shift.type === "半休（午前）" || shift.type === "半休（午後）") requestedOffDays += 0.5;
+          }
+        });
+
+        const row = [u.staffId, u.fullName, u.displayName, u.jobTitle, requestedOffDays, maxAllowed];
         dateList.forEach(dStr => {
           const key = `${dStr}_${u.staffId}`;
           const shift = allShiftsMap[key];
 
           if (shift) {
             let val = shift.type || "";
-            if (shift.memo) {
-              val += `(${shift.memo})`;
-            }
+            if (shift.memo) val += `(${shift.memo})`;
             row.push(val);
           } else {
             row.push("");
@@ -821,7 +921,6 @@
       });
 
       const csvContent = rows.map(r => r.map(field => `"${String(field).replace(/"/g, '""')}"`).join(",")).join("\r\n");
-
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
 
@@ -857,7 +956,6 @@
       document.getElementById("admin-modal").style.display = "flex";
     }
 
-    // 保存処理
     document.getElementById("btn-save").addEventListener("click", async () => {
       const type = document.getElementById("shift-type").value;
       const memo = document.getElementById("shift-memo").value;
@@ -878,7 +976,6 @@
       }
     });
 
-    // 削除処理
     document.getElementById("btn-delete").addEventListener("click", async () => {
       if (!confirm("この希望データを削除しますか？")) return;
       const docId = `${selectedDateStr}_${selectedStaffId}`;
