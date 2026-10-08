@@ -84,7 +84,7 @@
       border-color: #0066cc;
     }
 
-    /* 追加：公休数・割休数のバッジスタイル */
+    /* 公休数・割休数・休日総数のバッジスタイル */
     .period-info-group {
       display: flex;
       align-items: center;
@@ -326,9 +326,9 @@
       <div id="period-tabs" class="period-tabs"></div>
       <div class="period-info-group">
         <div id="period-display" style="font-weight:bold; color:#0066cc;">対象期間: 取得中...</div>
-        <!-- 追加：公休数・割休数の表示領域 -->
+        <!-- 変更：割休数〇日／休日総数〇日の表示領域 -->
         <div id="holiday-info-display" class="holiday-info-badge">
-          公休数: <span id="public-holiday-count">-</span>日 / 割休数: <span id="split-holiday-count">-</span>日
+          割休数: <span id="split-holiday-count">-</span>日 / 休日総数: <span id="total-holiday-count">-</span>日
         </div>
       </div>
     </div>
@@ -643,7 +643,7 @@
       document.getElementById("period-display").textContent = 
         `対象期間: ${targetPeriod.startStr} 〜 ${targetPeriod.endStr}`;
 
-      // 公休数・割休数の取得・更新を追加呼び出し
+      // 割休数・休日総数の取得・更新呼び出し
       await fetchPeriodSettings(targetPeriod);
 
       updateEditableStatus(targetPeriod);
@@ -651,42 +651,47 @@
       renderCalendar();
     }
 
-    // 追加：admin.htmlで設定された公休数・割休数をFirestoreから取得して表示する関数
+    // admin.htmlで設定された割休数・公休数を取得し「割休数 / 休日総数」を算出・表示する関数
     async function fetchPeriodSettings(periodObj) {
-      const publicEl = document.getElementById("public-holiday-count");
       const splitEl = document.getElementById("split-holiday-count");
+      const totalEl = document.getElementById("total-holiday-count");
       
-      // 初期化
-      publicEl.textContent = "-";
+      // 初期表示
       splitEl.textContent = "-";
+      totalEl.textContent = "-";
 
       try {
-        // ドキュメントIDの指定パターン（運用に合わせて調整可能）
-        // パターンA: 期間文字列（例: "2026-04-16_2026-05-15"）
         const periodKey = `${periodObj.startStr}_${periodObj.endStr}`;
-        let docRef = doc(db, "periodSettings", periodKey);
+        
+        // 優先検索1: period_configs コレクション (admin.htmlの構造)
+        let docRef = doc(db, "period_configs", periodKey);
         let docSnap = await getDoc(docRef);
 
-        // パターンB: settings/periodSettings 内のマップデータや別形式の場合のフォールバック
+        // フォールバック検索2: periodSettings コレクション
         if (!docSnap.exists()) {
-          // 例: settingsコレクションのperiodSettingsドキュメント
-          docRef = doc(db, "settings", "periodSettings");
+          docRef = doc(db, "periodSettings", periodKey);
           docSnap = await getDoc(docRef);
-          if (docSnap.exists() && docSnap.data()[periodKey]) {
-            const pData = docSnap.data()[periodKey];
-            publicEl.textContent = pData.publicHolidays ?? "-";
-            splitEl.textContent = pData.splitHolidays ?? "-";
-            return;
-          }
         }
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          publicEl.textContent = data.publicHolidays ?? data.publicHoliday ?? "-";
-          splitEl.textContent = data.splitHolidays ?? data.splitHoliday ?? "-";
+          // 公休数 (デフォルト9日) と 割休数 (デフォルト0日) を取得
+          const publicHolidays = Number(data.maxOffDays ?? data.publicHolidays ?? data.publicHoliday ?? 9);
+          const splitHolidays = Number(data.extraOffDays ?? data.splitHolidays ?? data.splitHoliday ?? 0);
+          
+          const totalHolidays = publicHolidays + splitHolidays;
+
+          splitEl.textContent = splitHolidays;
+          totalEl.textContent = totalHolidays;
+        } else {
+          // 設定データが未登録の場合の初期値 (基本9日 / 割休0日 = 9日)
+          splitEl.textContent = "0";
+          totalEl.textContent = "9";
         }
       } catch (e) {
-        console.warn("公休数・割休数データ取得エラー:", e);
+        console.warn("割休数・休日総数データ取得エラー:", e);
+        splitEl.textContent = "-";
+        totalEl.textContent = "-";
       }
     }
 
