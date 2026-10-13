@@ -159,7 +159,7 @@
     }
     .cal-cell:hover { background-color: #f1f3f5; }
     
-    /* 日曜日・祝日のセル背景（12/29〜1/3含む） */
+    /* 日曜日・祝日のセル背景（12/30〜1/3含む） */
     .cal-cell.sun, .cal-cell.holiday {
       background-color: #fff0f3;
       border-color: #ffc9c9;
@@ -326,7 +326,6 @@
       <div id="period-tabs" class="period-tabs"></div>
       <div class="period-info-group">
         <div id="period-display" style="font-weight:bold; color:#0066cc;">対象期間: 取得中...</div>
-        <!-- 変更：割休数〇日／休日総数〇日の表示領域 -->
         <div id="holiday-info-display" class="holiday-info-badge">
           割休数: <span id="split-holiday-count">-</span>日 / 休日総数: <span id="total-holiday-count">-</span>日
         </div>
@@ -419,22 +418,20 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // 【パターン3実装】タブやブラウザを閉じたらログアウトされる設定を適用
     setPersistence(auth, browserSessionPersistence).catch((error) => {
       console.error("セッション保持設定のエラー:", error);
     });
 
     let currentStaffId = "";
     let periodList = [];
-    let currentPeriodIndex = 1; // 初期選択: 「当期」
+    let currentPeriodIndex = 1; 
     let dateList = [];
-    let allShiftsDataMap = {}; // { date: [ { staffId, type, memo }, ... ] }
-    let usersNameMap = {};     // { staffId: displayName }
+    let allShiftsDataMap = {}; 
+    let usersNameMap = {};     
     let selectedDateStr = "";
     let isEditableCurrentPeriod = true;
     let holidayMap = {};
 
-    // 希望区分の定義と並び順カテゴリ判定
     const DUTY_TYPES = ["当直〇", "当直×", "残業×"];
     const OFF_TYPES  = ["休み", "有給休暇", "リフレッシュ休暇", "半休（午前）", "半休（午後）"];
     const WORK_TYPES = ["出勤", "出張"];
@@ -445,14 +442,12 @@
         
         await loadUsersNameMap();
         
-        // ユーザー情報を確定（UID、ログインID、staffIdのどれかが一致するデータを検索）
         const userInfo = await resolveUserInfo(user.uid, loginLoginPrefix);
         currentStaffId = userInfo.staffId;
 
         const displayName = userInfo.displayName || usersNameMap[currentStaffId] || currentStaffId;
         document.getElementById("user-display").textContent = `ログイン中: ${displayName}`;
         
-        // 取得した権限情報を元にチェック
         if (userInfo.role && String(userInfo.role).trim().toLowerCase() === "admin") {
           showAdminButton();
         }
@@ -464,7 +459,6 @@
       }
     });
 
-    // ユーザー一覧（displayName）読み込み
     async function loadUsersNameMap() {
       try {
         const snap = await getDocs(collection(db, "users"));
@@ -478,7 +472,6 @@
       }
     }
 
-    // Auth情報からFirestoreのユーザー情報を柔軟に検索・特定する関数
     async function resolveUserInfo(uid, loginPrefix) {
       let foundData = null;
 
@@ -521,7 +514,6 @@
       };
     }
 
-    // 管理者ボタン表示処理
     function showAdminButton() {
       const btnAdmin = document.getElementById("btn-admin");
       if (btnAdmin) {
@@ -532,7 +524,6 @@
       }
     }
 
-    // ログアウトボタン押下処理
     document.getElementById("btn-logout").addEventListener("click", () => {
       signOut(auth).then(() => {
         window.location.href = "index.html";
@@ -560,7 +551,8 @@
         const m = parseInt(parts[1], 10);
         const d = parseInt(parts[2], 10);
 
-        if ((m === 12 && d >= 29) || (m === 1 && d <= 3)) {
+        // 12月30日〜翌年1月3日を休日扱いに変更
+        if ((m === 12 && d >= 30) || (m === 1 && d <= 3)) {
           return true;
         }
       }
@@ -643,7 +635,6 @@
       document.getElementById("period-display").textContent = 
         `対象期間: ${targetPeriod.startStr} 〜 ${targetPeriod.endStr}`;
 
-      // 割休数・休日総数の取得・更新呼び出し
       await fetchPeriodSettings(targetPeriod);
 
       updateEditableStatus(targetPeriod);
@@ -651,23 +642,19 @@
       renderCalendar();
     }
 
-    // admin.htmlで設定された割休数・公休数を取得し「割休数 / 休日総数」を算出・表示する関数
     async function fetchPeriodSettings(periodObj) {
       const splitEl = document.getElementById("split-holiday-count");
       const totalEl = document.getElementById("total-holiday-count");
       
-      // 初期表示
       splitEl.textContent = "-";
       totalEl.textContent = "-";
 
       try {
         const periodKey = `${periodObj.startStr}_${periodObj.endStr}`;
         
-        // 優先検索1: period_configs コレクション (admin.htmlの構造)
         let docRef = doc(db, "period_configs", periodKey);
         let docSnap = await getDoc(docRef);
 
-        // フォールバック検索2: periodSettings コレクション
         if (!docSnap.exists()) {
           docRef = doc(db, "periodSettings", periodKey);
           docSnap = await getDoc(docRef);
@@ -675,7 +662,6 @@
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // 公休数 (デフォルト9日) と 割休数 (デフォルト0日) を取得
           const publicHolidays = Number(data.maxOffDays ?? data.publicHolidays ?? data.publicHoliday ?? 9);
           const splitHolidays = Number(data.extraOffDays ?? data.splitHolidays ?? data.splitHoliday ?? 0);
           
@@ -684,7 +670,6 @@
           splitEl.textContent = splitHolidays;
           totalEl.textContent = totalHolidays;
         } else {
-          // 設定データが未登録の場合の初期値 (基本9日 / 割休0日 = 9日)
           splitEl.textContent = "0";
           totalEl.textContent = "9";
         }
