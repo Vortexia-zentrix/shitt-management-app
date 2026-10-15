@@ -502,6 +502,12 @@
       signOut(auth).then(() => { window.location.href = "index.html"; });
     });
 
+    // フォーム開閉トグル
+    document.getElementById("toggle-user-form-btn").addEventListener("click", () => {
+      const container = document.getElementById("user-form-container");
+      container.style.display = container.style.display === "none" ? "block" : "none";
+    });
+
     // 入力値変更時にプレビュー更新
     function updatePreview() {
       const off = Number(document.getElementById("max-off-days-input").value) || 0;
@@ -761,7 +767,7 @@
       renderMatrixTable();
     }
 
-    // 保存ボタンクリック処理（詳細なエラーハンドリング付き）
+    // 保存ボタンクリック処理
     document.getElementById("btn-save-period-config").addEventListener("click", async () => {
       const target = periodList[currentPeriodIndex];
       const maxOff = Number(document.getElementById("max-off-days-input").value) || 0;
@@ -780,7 +786,7 @@
       } catch (e) {
         console.error("設定保存エラー詳細:", e);
         if (e.code === "permission-denied") {
-          alert("保存に失敗しました: Firebase のセキュリティルールにより書き込みが拒否されました。\nFirestore セキュリティルールで「period_configs」コレクションへの書き込み（write）権限を許可してください。");
+          alert("保存に失敗しました: Firebase のセキュリティルールにより書き込みが拒否されました。");
         } else {
           alert("設定の保存に失敗しました:\n" + e.message);
         }
@@ -882,6 +888,7 @@
       });
     }
 
+    // ★ CSVダウンロード処理（「割休数」列を希望休み数と上限日数の間に追加）
     document.getElementById("btn-download-csv").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
 
@@ -891,13 +898,14 @@
       }
 
       const rows = [];
-      const headerRow = ["職員ID", "職員氏名", "表示名", "職種", "希望休み数", "上限日数"];
+      const headerRow = ["職員ID", "職員氏名", "表示名", "職種", "希望休み数", "割休数", "上限日数"];
       dateList.forEach(dStr => {
         headerRow.push(dStr);
       });
       rows.push(headerRow);
 
       const maxAllowed = (periodConfig.maxOffDays || 9) + (periodConfig.extraOffDays || 0);
+      const extraDays = periodConfig.extraOffDays || 0;
 
       visibleUsers.forEach(u => {
         let requestedOffDays = 0;
@@ -910,7 +918,7 @@
           }
         });
 
-        const row = [u.staffId, u.fullName, u.displayName, u.jobTitle, requestedOffDays, maxAllowed];
+        const row = [u.staffId, u.fullName, u.displayName, u.jobTitle, requestedOffDays, extraDays, maxAllowed];
         dateList.forEach(dStr => {
           const key = `${dStr}_${u.staffId}`;
           const shift = allShiftsMap[key];
