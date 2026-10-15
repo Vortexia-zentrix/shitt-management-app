@@ -92,6 +92,10 @@
       border-color: #212529;
     }
 
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
     .btn-success {
       background: #28a745;
       color: white;
@@ -103,6 +107,18 @@
       font-weight: bold;
     }
     .btn-success:hover { background: #218838; }
+
+    .btn-print {
+      background: #0d6efd;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .btn-print:hover { background: #0b5ed7; }
 
     .table-container {
       overflow-x: auto;
@@ -336,7 +352,10 @@
   <div class="card">
     <div class="card-title">
       <span>📅 全職員の勤務希望一覧</span>
-      <button id="btn-download-csv" class="btn-success">📥 CSVダウンロード</button>
+      <div class="action-buttons">
+        <button id="btn-open-print-view" class="btn-print">🖨️ 印刷用カレンダー表示</button>
+        <button id="btn-download-csv" class="btn-success">📥 CSVダウンロード</button>
+      </div>
     </div>
     <div class="period-toolbar">
       <div id="period-tabs" class="period-tabs"></div>
@@ -502,13 +521,11 @@
       signOut(auth).then(() => { window.location.href = "index.html"; });
     });
 
-    // フォーム開閉トグル
     document.getElementById("toggle-user-form-btn").addEventListener("click", () => {
       const container = document.getElementById("user-form-container");
       container.style.display = container.style.display === "none" ? "block" : "none";
     });
 
-    // 入力値変更時にプレビュー更新
     function updatePreview() {
       const off = Number(document.getElementById("max-off-days-input").value) || 0;
       const extra = Number(document.getElementById("extra-off-days-input").value) || 0;
@@ -767,7 +784,6 @@
       renderMatrixTable();
     }
 
-    // 保存ボタンクリック処理
     document.getElementById("btn-save-period-config").addEventListener("click", async () => {
       const target = periodList[currentPeriodIndex];
       const maxOff = Number(document.getElementById("max-off-days-input").value) || 0;
@@ -888,7 +904,176 @@
       });
     }
 
-    // ★ CSVダウンロード処理（「割休数」列を希望休み数と上限日数の間に追加）
+    // ==========================================
+    // 🖨️ 印刷用カレンダー（日〜土グリッド）を別タブで生成して表示
+    // ==========================================
+    document.getElementById("btn-open-print-view").addEventListener("click", () => {
+      const visibleUsers = usersList.filter(u => u.isVisible !== false);
+      if (visibleUsers.length === 0 || dateList.length === 0) {
+        alert("表示可能なデータがありません。");
+        return;
+      }
+
+      const currentPeriod = periodList[currentPeriodIndex];
+      const extraDays = periodConfig.extraOffDays || 0;
+      const totalDays = (periodConfig.maxOffDays || 9) + extraDays;
+
+      // 祝日判定用サブ関数（日本国内の主要祝日・年末年始判定）
+      function isHoliday(dateStr) {
+        const d = new Date(dateStr);
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const w = d.getDay();
+
+        // 年末年始 (12/30〜1/3)
+        if ((m === 12 && day >= 30) || (m === 1 && day <= 3)) return true;
+        // 固定祝日
+        if ((m === 1 && day === 1) || (m === 2 && day === 11) || (m === 2 && day === 23) ||
+            (m === 4 && day === 29) || (m === 5 && day === 3) || (m === 5 && day === 4) ||
+            (m === 5 && day === 5) || (m === 8 && day === 11) || (m === 11 && day === 3) ||
+            (m === 11 && day === 23)) return true;
+        // ハッピーマンデー等
+        if (m === 1 && w === 1 && day >= 8 && day <= 14) return true;
+        if (m === 7 && w === 1 && day >= 15 && day <= 21) return true;
+        if (m === 9 && w === 1 && day >= 15 && day <= 21) return true;
+        if (m === 10 && w === 1 && day >= 8 && day <= 14) return true;
+        if (m === 3 && (day === 20 || day === 21)) return true;
+        if (m === 9 && (day === 22 || day === 23)) return true;
+        return false;
+      }
+
+      // カレンダーのグリッド用配列を作成
+      const startDate = new Date(currentPeriod.startStr);
+      const startWww = startDate.getDay(); // 0(日)〜6(土)
+
+      let calendarWeeks = [];
+      let currentWeek = new Array(startWww).fill(null); // 前月の余白
+
+      dateList.forEach(dStr => {
+        const d = new Date(dStr);
+        const w = d.getDay();
+
+        // 各職員のこの日の希望を収集
+        let dutyList = [];
+        let offList = [];
+        let workList = [];
+
+        visibleUsers.forEach(u => {
+          const key = `${dStr}_${u.staffId}`;
+          const shift = allShiftsMap[key];
+          if (shift && shift.type) {
+            const itemText = `[${shift.type}] ${u.displayName}`;
+            if (DUTY_TYPES.includes(shift.type)) {
+              dutyList.push(itemText);
+            } else if (OFF_TYPES.includes(shift.type)) {
+              offList.push(itemText);
+            } else {
+              workList.push(itemText);
+            }
+          }
+        });
+
+        currentWeek.push({
+          dateStr: dStr,
+          dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
+          dayOfWeek: w,
+          isSunOrHol: (w === 0 || isHoliday(dStr)),
+          isSat: (w === 6),
+          dutyText: dutyList.join("<br>"),
+          offText: offList.join("<br>"),
+          workText: workList.join("<br>")
+        });
+
+        if (currentWeek.length === 7) {
+          calendarWeeks.push(currentWeek);
+          currentWeek = [];
+        }
+      });
+
+      // 最後の週の余白埋め
+      if (currentWeek.length > 0) {
+        while (currentWeek.length < 7) {
+          currentWeek.push(null);
+        }
+        calendarWeeks.push(currentWeek);
+      }
+
+      // 印刷用HTMLの構築
+      const printWin = window.open('', '_blank');
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+          <meta charset="UTF-8">
+          <title>勤務希望一覧カレンダー (${currentPeriod.startStr} - ${currentPeriod.endStr})</title>
+          <style>
+            @page { size: landscape; margin: 10mm; }
+            body { font-family: sans-serif; margin: 0; padding: 10px; color: #333; }
+            h1 { font-size: 20px; margin: 0 0 5px 0; }
+            .meta-info { font-size: 14px; font-weight: bold; color: #0d6efd; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            th { background: #f1f3f5; border: 1px solid #444; padding: 6px; font-size: 13px; text-align: center; }
+            th.sun { background: #ffeef0; color: #dc3545; }
+            th.sat { background: #ebf5ff; color: #0056b3; }
+            td.day-cell { border: 2px solid #666; vertical-align: top; height: 215px; padding: 0; background: #fff; }
+            td.empty-cell { border: 1px solid #ddd; background: #f8f9fa; }
+            .date-header { font-size: 11px; font-weight: bold; padding: 3px 6px; border-bottom: 1px solid #ccc; background: #f8f9fa; }
+            .sun-hol .date-header { background: #ffeef0; color: #dc3545; }
+            .sun-hol { background: #fff8f8 !important; }
+            .sat .date-header { color: #0056b3; }
+            .section { font-size: 9px; padding: 3px 5px; overflow: hidden; }
+            .sec-duty { height: 35px; border-bottom: 1px solid #e0e0e0; color: #856404; background: #fffdf5; }
+            .sec-off { height: 100px; border-bottom: 1px solid #e0e0e0; color: #721c24; }
+            .sec-work { height: 65px; color: #0c5460; }
+            .no-print { margin-bottom: 15px; text-align: right; }
+            .btn-print-action { background: #0d6efd; color: white; border: none; padding: 8px 16px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="no-print">
+            <button class="btn-print-action" onclick="window.print()">🖨️ このカレンダーを印刷 / PDF保存</button>
+          </div>
+          <h1>勤務希望一覧カレンダー</h1>
+          <div class="meta-info">対象期間: ${currentPeriod.startStr} - ${currentPeriod.endStr} &nbsp;&nbsp; [ 割休数: ${extraDays} 日 / 休日総数: ${totalDays} 日 ]</div>
+          <table>
+            <thead>
+              <tr>
+                <th class="sun">日</th>
+                <th>月</th>
+                <th>火</th>
+                <th>水</th>
+                <th>木</th>
+                <th>金</th>
+                <th class="sat">土</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${calendarWeeks.map(week => `
+                <tr>
+                  ${week.map(day => {
+                    if (!day) return `<td class="empty-cell"></td>`;
+                    return `
+                      <td class="day-cell ${day.isSunOrHol ? 'sun-hol' : ''}">
+                        <div class="date-header">${day.dateLabel}</div>
+                        <div class="section sec-duty">${day.dutyText}</div>
+                        <div class="section sec-off">${day.offText}</div>
+                        <div class="section sec-work">${day.workText}</div>
+                      </td>
+                    `;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `);
+      printWin.document.close();
+    });
+
+    // CSVダウンロード処理
     document.getElementById("btn-download-csv").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
 
@@ -991,6 +1176,7 @@
     });
 
     document.getElementById("btn-delete").addEventListener("click", async () => {
+      if (!confirm("this wish data delete?")) return; // fallback
       if (!confirm("この希望データを削除しますか？")) return;
       const docId = `${selectedDateStr}_${selectedStaffId}`;
 
