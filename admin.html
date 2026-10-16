@@ -898,7 +898,7 @@
     }
 
     // ==========================================
-    // 🖨️ 印刷用カレンダー（縦セル2倍・文字2.5倍・1ページ強制収容）
+    // 🖨️ 印刷用カレンダー（セル高さ3分の2＆フォント半分に調整）
     // ==========================================
     document.getElementById("btn-open-print-view").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
@@ -994,7 +994,7 @@
           <style>
             @page { 
               size: A4 portrait; 
-              margin: 2mm; 
+              margin: 4mm; 
             }
             body { 
               font-family: sans-serif; 
@@ -1007,42 +1007,36 @@
             }
             .print-wrapper {
               width: 100%;
-              max-height: 100vh;
               box-sizing: border-box;
             }
-            h1 { font-size: 15px; margin: 0 0 1px 0; text-align: center; font-weight: bold; }
+            h1 { font-size: 14px; margin: 0 0 1px 0; text-align: center; font-weight: bold; }
             .meta-info { font-size: 11px; font-weight: bold; color: #0d6efd; margin-bottom: 4px; text-align: center; }
             
             table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th { background: #e9ecef; border: 1.5px solid #333; padding: 3px; font-size: 12px; text-align: center; }
+            th { background: #e9ecef; border: 1.5px solid #333; padding: 3px; font-size: 11px; text-align: center; }
             th.sun { background: #ffeef0; color: #dc3545; }
             th.sat { background: #ebf5ff; color: #0056b3; }
             
-            /* 縦セルを約2倍に引き延ばした高さ設定 */
-            td.day-cell { border: 2px solid #333; vertical-align: top; height: 320px; padding: 0; background: #fff; }
+            /* セルの高さを3分の2程度に縮小 (210px) */
+            td.day-cell { border: 1.5px solid #333; vertical-align: top; height: 210px; padding: 0; background: #fff; }
             td.empty-cell { border: 1px solid #ccc; background: #f8f9fa; }
             
-            .date-header { font-size: 13px; font-weight: bold; padding: 2px 4px; border-bottom: 1.5px solid #333; background: #f1f3f5; }
+            .date-header { font-size: 11px; font-weight: bold; padding: 2px 4px; border-bottom: 1.5px solid #333; background: #f1f3f5; }
             .sun-hol .date-header { background: #ffeef0; color: #dc3545; }
             .sun-hol { background: #fffafb !important; }
             .sat .date-header { color: #0056b3; }
             
-            /* 文字の大きさを2.5倍付近に拡大し、各セクションの高さも連動させて拡張 */
-            .section { font-size: 25px; padding: 2px 4px; overflow: hidden; line-height: 1.2; font-weight: bold; }
-            .sec-duty { height: 60px; border-bottom: 1.5px solid #bbb; color: #7f5500; background: #fffdf0; }
-            .sec-off { height: 165px; border-bottom: 1.5px solid #bbb; color: #721c24; }
-            .sec-work { height: 95px; color: #084298; }
+            /* フォントサイズを半分の約12.5pxにし、各セクションの高さもそれに合わせてコンパクトに設定 */
+            .section { font-size: 12.5px; padding: 1px 3px; overflow: hidden; line-height: 1.15; font-weight: bold; }
+            .sec-duty { height: 40px; border-bottom: 1px solid #bbb; color: #7f5500; background: #fffdf0; }
+            .sec-off { height: 110px; border-bottom: 1px solid #bbb; color: #721c24; }
+            .sec-work { height: 60px; color: #084298; }
             
             .no-print { margin-bottom: 10px; text-align: right; }
             .btn-print-action { background: #0d6efd; color: white; border: none; padding: 8px 16px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
             
             @media print { 
               .no-print { display: none; }
-              html, body {
-                width: 210mm;
-                height: 297mm;
-                overflow: hidden;
-              }
             }
           </style>
         </head>
