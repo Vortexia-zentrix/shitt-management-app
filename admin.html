@@ -898,7 +898,7 @@
     }
 
     // ==========================================
-    // 🖨️ 印刷用カレンダー（A4縦・上下左右一杯＆文字拡大・1ページ強制収容版）
+    // 🖨️ 印刷用カレンダー（縦セル2倍・文字2.5倍・1ページ強制収容）
     // ==========================================
     document.getElementById("btn-open-print-view").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
@@ -992,76 +992,98 @@
           <meta charset="UTF-8">
           <title>勤務希望一覧カレンダー (${currentPeriod.startStr} - ${currentPeriod.endStr})</title>
           <style>
-            @page { size: portrait; margin: 4mm; }
+            @page { 
+              size: A4 portrait; 
+              margin: 2mm; 
+            }
             body { 
               font-family: sans-serif; 
               margin: 0; 
               padding: 0; 
               color: #111; 
               background: #fff;
-              transform: scale(0.96);
-              transform-origin: top center;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
-            h1 { font-size: 16px; margin: 0 0 2px 0; text-align: center; font-weight: bold; }
-            .meta-info { font-size: 12px; font-weight: bold; color: #0d6efd; margin-bottom: 6px; text-align: center; }
+            .print-wrapper {
+              width: 100%;
+              max-height: 100vh;
+              box-sizing: border-box;
+            }
+            h1 { font-size: 15px; margin: 0 0 1px 0; text-align: center; font-weight: bold; }
+            .meta-info { font-size: 11px; font-weight: bold; color: #0d6efd; margin-bottom: 4px; text-align: center; }
+            
             table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th { background: #e9ecef; border: 1.5px solid #333; padding: 4px; font-size: 13px; text-align: center; }
+            th { background: #e9ecef; border: 1.5px solid #333; padding: 3px; font-size: 12px; text-align: center; }
             th.sun { background: #ffeef0; color: #dc3545; }
             th.sat { background: #ebf5ff; color: #0056b3; }
-            td.day-cell { border: 2px solid #333; vertical-align: top; height: 168px; padding: 0; background: #fff; }
+            
+            /* 縦セルを約2倍に引き延ばした高さ設定 */
+            td.day-cell { border: 2px solid #333; vertical-align: top; height: 320px; padding: 0; background: #fff; }
             td.empty-cell { border: 1px solid #ccc; background: #f8f9fa; }
-            .date-header { font-size: 12px; font-weight: bold; padding: 2px 4px; border-bottom: 1.5px solid #333; background: #f1f3f5; }
+            
+            .date-header { font-size: 13px; font-weight: bold; padding: 2px 4px; border-bottom: 1.5px solid #333; background: #f1f3f5; }
             .sun-hol .date-header { background: #ffeef0; color: #dc3545; }
             .sun-hol { background: #fffafb !important; }
             .sat .date-header { color: #0056b3; }
-            .section { font-size: 10px; padding: 2px 4px; overflow: hidden; line-height: 1.25; font-weight: 500; }
-            .sec-duty { height: 32px; border-bottom: 1px solid #bbb; color: #7f5500; background: #fffdf0; }
-            .sec-off { height: 82px; border-bottom: 1px solid #bbb; color: #721c24; }
-            .sec-work { height: 46px; color: #084298; }
+            
+            /* 文字の大きさを2.5倍付近に拡大し、各セクションの高さも連動させて拡張 */
+            .section { font-size: 25px; padding: 2px 4px; overflow: hidden; line-height: 1.2; font-weight: bold; }
+            .sec-duty { height: 60px; border-bottom: 1.5px solid #bbb; color: #7f5500; background: #fffdf0; }
+            .sec-off { height: 165px; border-bottom: 1.5px solid #bbb; color: #721c24; }
+            .sec-work { height: 95px; color: #084298; }
+            
             .no-print { margin-bottom: 10px; text-align: right; }
             .btn-print-action { background: #0d6efd; color: white; border: none; padding: 8px 16px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+            
             @media print { 
               .no-print { display: none; }
-              body { transform: none; }
+              html, body {
+                width: 210mm;
+                height: 297mm;
+                overflow: hidden;
+              }
             }
           </style>
         </head>
         <body>
           <div class="no-print">
-            <button class="btn-print-action" onclick="window.print()">🖨️ 縦向きで印刷 / PDF保存</button>
+            <button class="btn-print-action" onclick="window.print()">🖨️ 縦向きで印刷 / PDF保存（1ページに収める設定）</button>
           </div>
-          <h1>勤務希望一覧カレンダー</h1>
-          <div class="meta-info">対象期間: ${currentPeriod.startStr} - ${currentPeriod.endStr} &nbsp;&nbsp; [ 割休数: ${extraDays} 日 / 休日総数: ${totalDays} 日 ]</div>
-          <table>
-            <thead>
-              <tr>
-                <th class="sun">日</th>
-                <th>月</th>
-                <th>火</th>
-                <th>水</th>
-                <th>木</th>
-                <th>金</th>
-                <th class="sat">土</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${calendarWeeks.map(week => `
+          <div class="print-wrapper">
+            <h1>勤務希望一覧カレンダー</h1>
+            <div class="meta-info">対象期間: ${currentPeriod.startStr} - ${currentPeriod.endStr} &nbsp;&nbsp; [ 割休数: ${extraDays} 日 / 休日総数: ${totalDays} 日 ]</div>
+            <table>
+              <thead>
                 <tr>
-                  ${week.map(day => {
-                    if (!day) return `<td class="empty-cell"></td>`;
-                    return `
-                      <td class="day-cell ${day.isSunOrHol ? 'sun-hol' : ''}">
-                        <div class="date-header">${day.dateLabel}</div>
-                        <div class="section sec-duty">${day.dutyText}</div>
-                        <div class="section sec-off">${day.offText}</div>
-                        <div class="section sec-work">${day.workText}</div>
-                      </td>
-                    `;
-                  }).join('')}
+                  <th class="sun">日</th>
+                  <th>月</th>
+                  <th>火</th>
+                  <th>水</th>
+                  <th>木</th>
+                  <th>金</th>
+                  <th class="sat">土</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${calendarWeeks.map(week => `
+                  <tr>
+                    ${week.map(day => {
+                      if (!day) return `<td class="empty-cell"></td>`;
+                      return `
+                        <td class="day-cell ${day.isSunOrHol ? 'sun-hol' : ''}">
+                          <div class="date-header">${day.dateLabel}</div>
+                          <div class="section sec-duty">${day.dutyText}</div>
+                          <div class="section sec-off">${day.offText}</div>
+                          <div class="section sec-work">${day.workText}</div>
+                        </td>
+                      `;
+                    }).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </body>
         </html>
       `);
