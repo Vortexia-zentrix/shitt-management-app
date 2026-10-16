@@ -898,7 +898,7 @@
     }
 
     // ==========================================
-    // 🖨️ 印刷用カレンダー（セル高さ3分の2＆フォント半分に調整）
+    // 🖨️ 印刷用カレンダー（縦セル長さ 0.8倍 ＆ フォント 0.7倍 調整版）
     // ==========================================
     document.getElementById("btn-open-print-view").addEventListener("click", () => {
       const visibleUsers = usersList.filter(u => u.isVisible !== false);
@@ -1017,8 +1017,8 @@
             th.sun { background: #ffeef0; color: #dc3545; }
             th.sat { background: #ebf5ff; color: #0056b3; }
             
-            /* セルの高さを3分の2程度に縮小 (210px) */
-            td.day-cell { border: 1.5px solid #333; vertical-align: top; height: 210px; padding: 0; background: #fff; }
+            /* セルの高さを0.8倍に調整 (168px) */
+            td.day-cell { border: 1.5px solid #333; vertical-align: top; height: 168px; padding: 0; background: #fff; }
             td.empty-cell { border: 1px solid #ccc; background: #f8f9fa; }
             
             .date-header { font-size: 11px; font-weight: bold; padding: 2px 4px; border-bottom: 1.5px solid #333; background: #f1f3f5; }
@@ -1026,11 +1026,11 @@
             .sun-hol { background: #fffafb !important; }
             .sat .date-header { color: #0056b3; }
             
-            /* フォントサイズを半分の約12.5pxにし、各セクションの高さもそれに合わせてコンパクトに設定 */
-            .section { font-size: 12.5px; padding: 1px 3px; overflow: hidden; line-height: 1.15; font-weight: bold; }
-            .sec-duty { height: 40px; border-bottom: 1px solid #bbb; color: #7f5500; background: #fffdf0; }
-            .sec-off { height: 110px; border-bottom: 1px solid #bbb; color: #721c24; }
-            .sec-work { height: 60px; color: #084298; }
+            /* フォントサイズを0.7倍に調整 (約8.7px)、各セクションの高さも0.8倍に連動 */
+            .section { font-size: 8.7px; padding: 1px 2px; overflow: hidden; line-height: 1.15; font-weight: bold; }
+            .sec-duty { height: 32px; border-bottom: 1px solid #bbb; color: #7f5500; background: #fffdf0; }
+            .sec-off { height: 88px; border-bottom: 1px solid #bbb; color: #721c24; }
+            .sec-work { height: 48px; color: #084298; }
             
             .no-print { margin-bottom: 10px; text-align: right; }
             .btn-print-action { background: #0d6efd; color: white; border: none; padding: 8px 16px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; }
